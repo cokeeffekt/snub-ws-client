@@ -1,3 +1,4 @@
+export default function(self) {
 function noop() {
   console.log('noop');
 }

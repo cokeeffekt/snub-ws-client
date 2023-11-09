@@ -17,6 +17,7 @@
         onclose: (_) => {},
         ondenyauth: (_) => {},
         onerror: (_) => {},
+        ondebug: (_) => {},
         workerOptions: {
           name: 'Snub-Ws-Worker',
           type: 'classic', // use module for web modules
@@ -41,7 +42,7 @@
         [
           'Init snub-ws-client',
           config.threadType,
-          String(config.worker).substr(0, 20),
+          String(config.worker).substring(0, 20),
         ].join(':')
       );
 
@@ -94,6 +95,8 @@
     // handle msg from worker thread
     scWorker.addEventListener('message', (event) => {
       var [key, value] = event.data;
+      // console.log('message from worker thread', event);
+
       if (key === '_snub_state') {
         var oldState = socketState;
         socketState = value;
@@ -117,6 +120,7 @@
       }
 
       if (key === '_snub_message') config.onmessage(value);
+      if (key.startsWith('__debug_')) config.ondebug(key, value);
 
       if (key === '_snub_acceptauth') {
         socketId = value;
@@ -214,6 +218,7 @@
             });
           });
         }
+        config.ondebug('__debug_postToWorker_snubSend', [key, value, noReply]);
         var res = await this.postToWorkerThread('_snubSend', [
           key,
           value,

@@ -113,7 +113,7 @@
       return currentWs;
     },
     initThreadClient() {
-      console.log('Thread Client INIT');
+      console.log('Thread Client INIT!!');
       // new clients will need to know about the existing connection.
       this.postMessageToMainThread('_snub_state', this.wsState);
       if (this.wsState === 'CONNECTED')
@@ -251,6 +251,8 @@
               fn: resolve,
             });
           currentWs.json([key, value, replyId]);
+          // console.log('__debug_snubSend', [key, value, replyId]);
+          this.postMessageToMainThread('__debug_snubSend', [key, value, replyId]);
           if (!replyId) resolve();
         }
       });

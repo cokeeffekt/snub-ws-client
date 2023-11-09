@@ -1,6 +1,6 @@
 {
   "name": "snub-ws-client",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "Websocket client for snub-ws",
   "main": "dist/snub-ws-client.js",
   "scripts": {
@@ -25,11 +25,13 @@
     "concurrently": "^5.1.0",
     "prettier": "^2.3.1",
     "rollup": "^1.31.1",
-    "ws": "^7.2.1",
-    "snub": "^3.0.1",
-    "snub-ws": "^3.0.7",
+    "snub": "^3.0.4",
+    "snub-ws": "^3.1.1",
     "static-server": "^2.2.1",
-    "watch": "^1.0.2"
+    "watch": "^1.0.2",
+    "ws": "^7.2.1",
+    "finalhandler": "^1.2.0",
+    "serve-static": "^1.15.0"
   },
   "dependencies": {}
 }

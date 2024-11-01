@@ -22,7 +22,7 @@ const SnubWS = require('snub-ws');
 const snubws = new SnubWS({
   debug: true,
   port: 1338,
-  mutliLogin: false,
+  multiLogin: false,
   auth: 'authme',
   timeout: 10000,
   authTimeout: 10000,
@@ -32,6 +32,7 @@ const snubws = new SnubWS({
 snub.use(snubws);
 
 snub.on('ws:authme', async (auth, reply) => {
+  console.log('authme', auth, auth.auth === '123abc');
   if (auth.auth === '123abc') reply(true);
   reply(false);
 });

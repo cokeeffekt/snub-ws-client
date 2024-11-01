@@ -1,4 +1,5 @@
-import workerScriptUrl from './worker.js'; // Will be a data URL if inlined
+const blob = new Blob(["const worker=function(){const e=[];let n=null,o=()=>{},s={};const t=\"undefined\"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope,r=\"undefined\"!=typeof SharedWorkerGlobalScope&&self instanceof SharedWorkerGlobalScope;return r?self.onconnect=function(n){const o=n.ports[0];e.push(o),o.onmessage=a,o.start(),c([\"_internal:connected\"])}:t&&(self.onmessage=a,c([\"_internal:connected\"])),{postToMain:e=>o=e,handleIncomingMessage:a,ready(){c([\"_internal:connected\"])}};function c(n){n=JSON.stringify(n),r?e.forEach((e=>e.postMessage(n))):t?self.postMessage(n):o({data:n})}function a(e){const[o,t]=JSON.parse(e.data);\"_config\"===o&&(s={...s,...t}),\"_connect\"===o&&async function(e){n&&(n.close(),await new Promise((e=>{n.onclose=()=>{e()}})));n=new WebSocket(s.url),n.onopen=()=>{n.send(JSON.stringify([\"_auth\",e]))},n.onmessage=e=>{const[n,o]=JSON.parse(e.data);return c(\"_acceptAuth\"===n?[\"_internal:socket-connect\",o]:[n,o])},n.onclose=e=>{c([\"_internal:socket-disconnected\",e]),n=null},n.onerror=e=>{console.error(\"Snub-Ws-Socket => Socket error:\",e)}}(t),\"_send\"===o&&n&&n.send(JSON.stringify(t))}}(\"undefined\"!=typeof self&&self);export default{postMessage:worker.handleIncomingMessage,postToMain:worker.postToMain,ready:worker.ready};"], { type: 'application/javascript' });
+          var workerScriptUrl = URL.createObjectURL(blob);
 
 const DEFAULT_CONFIG = {
   workerType: 'SHARED_WORKER', // 'SHARED_WORKER', 'WEB_WORKER', 'MAIN_THREAD'
@@ -6,7 +7,7 @@ const DEFAULT_CONFIG = {
   url: 'ws://localhost:8080',
   replyTimeout: 10000,
 };
-export default class SnubWsClient {
+class SnubWsClient {
   #workerType = null;
   #worker = null;
   #config = DEFAULT_CONFIG;
@@ -195,3 +196,6 @@ function generateUID() {
   secondPart = ('000' + secondPart.toString(36)).slice(-3);
   return firstPart + secondPart;
 }
+
+export { SnubWsClient as default };
+//# sourceMappingURL=snub-ws-client.esm.js.map

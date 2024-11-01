@@ -3,53 +3,32 @@
 
 <head>
   <title>Sample</title>
-  <script src="../dist/snub-ws-client.js"></script>
+  <script src="../dist/snub-ws-client.min.js"></script>
   <script>
-    // eslint-disable-next-line no-undef
-    var snub = snubWsClient({
-      socketPath: 'ws://localhost:1338',
-      threadType: 'inline',
-      worker: '../dist/web-worker.thread.js',
-      onmessage: msg => { console.log('onmessage', msg); },
-      onstatechange: state => { console.log('onstatechange', state); },
-      onclose: reason => { console.log('closed', reason); },
-      onconnect: _ => { console.log('onconnect'); },
-      onauthenticated: async _ => {
-        console.log('AUTHED!!');
-        var res1 = await snub.send('test_with_reply', 'hello');
-        console.log('res1 expect reply:', res1);
-
-        var res2 = await snub.send('test_no_reply', 'derp', true);
-        console.log('res2 no reply', res2);
-      }
+    const snubWsClient = new SnubWsClient({
+      workerType: 'SHARED_WORKER', // SHARED_WORKER, WEB_WORKER, MAIN_THREAD. Will always fall back to next available worker type if not supported.
+      url: 'ws://localhost:1338',
     });
-    (async _ => {
-      snub.connect({
-        auth: '123abc'
-      });
+    snubWsClient.connect({auth:'123abc'});
 
-      var job = await snub.createJob('bleh', (a, b, c) => {
-        console.log('in job', a + b + c);
-        return a + b + c;
-      });
+    snubWsClient.onopen(async (auth) => {
+      console.log('CLIENT AUTH => ', auth);
 
-      console.log('>> JOB:', job);
+      snubWsClient.send('test_with_reply', 'test');
 
-      var jobRan = await job(1, 2, 3);
-      console.log('>> JOB Ran:', jobRan);
+      let res = await snubWsClient.fetch('test_with_reply', 'test');
+      console.log('CLIENT FETCH => ', res);
 
-      jobRan = await job(4, 5, 6);
-      console.log('>> JOB Ran:', jobRan);
 
-      var precon = await snub.send('test_with_reply', 'precon');
-      console.log('precon expect reply:', precon);
+    });
 
-      document.body.addEventListener('click', e => {
-        if (e.target.tagName !== 'BUTTON') return false;
-        if (e.target.id === 'close')
-          snub.close();
-      });
-    })();
+    snubWsClient.onmessage((key, value) => {
+      console.log('CLIENT MESSAGE => ', key, value);
+    });
+
+    snubWsClient.onclose((event) => {
+      console.log('CLIENT CLOSE => ', event);
+    });
   </script>
 </head>
 

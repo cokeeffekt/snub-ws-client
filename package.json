@@ -1,14 +1,15 @@
 {
   "name": "snub-ws-client",
-  "version": "1.0.26",
+  "version": "4.0.0-beta.0",
   "description": "Websocket client for snub-ws",
   "main": "dist/snub-ws-client.js",
+  "type": "module",
   "scripts": {
-    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.js\"  \"watch 'npm run dobuild' src\" --kill-others",
-    "dobuild": "rollup -c rollup.config.js; cp dist/web-worker.thread.js dist/web-worker.fn.js; echo \"$(echo 'export default function(self) {'; cat dist/web-worker.fn.js; echo -n '}')\" > dist/web-worker.fn.js;",
+    "build": "rollup -c",
     "redis": "docker run --rm --name redis-untap -p 6379:6379 redis:4.0-alpine",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "watch": "watch 'npm run dobuild' src"
+    "watch": "watch 'npm run build' src",
+    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.cjs\"  \"watch 'npm run build' src\" --kill-others"
   },
   "repository": {
     "type": "git",
@@ -21,15 +22,17 @@
   },
   "homepage": "https://github.com/cokeeffekt/snub-ws-client#readme",
   "devDependencies": {
-    "@rollup/plugin-node-resolve": "^7.1.1",
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-terser": "^0.4.4",
     "concurrently": "^5.1.0",
     "prettier": "^2.3.1",
-    "rollup": "^1.31.1",
-    "ws": "^7.2.1",
+    "rollup": "^4.24.3",
+    "rollup-plugin-copy": "^3.5.0",
     "snub": "^3.0.1",
     "snub-ws": "^3.0.7",
     "static-server": "^2.2.1",
-    "watch": "^1.0.2"
-  },
-  "dependencies": {}
+    "watch": "^1.0.2",
+    "ws": "^7.2.1"
+  }
 }

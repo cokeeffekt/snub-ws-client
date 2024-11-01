@@ -61,6 +61,11 @@ const worker = (function (root) {
     if (event === '_connect') {
       connectSocket(payload);
     }
+    if (event === '_close') {
+      if (currentSocket) {
+        currentSocket.close(...payload);
+      }
+    }
     if (event === '_send') {
       if (currentSocket) {
         currentSocket.send(JSON.stringify(payload));
@@ -92,7 +97,12 @@ const worker = (function (root) {
       return postMessage([key, payload]);
     };
     currentSocket.onclose = (event) => {
-      postMessage(['_internal:socket-disconnected', event]);
+      console.log(event);
+      // https://github.com/Luka967/websocket-close-codes
+      postMessage(['_internal:socket-disconnected', {
+        code: event.code,
+        reason: event.reason,
+      }]);
       currentSocket = null;
     };
     currentSocket.onerror = (error) => {

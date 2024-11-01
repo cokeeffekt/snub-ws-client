@@ -1,4 +1,4 @@
-const blob = new Blob(["const worker=function(){const e=[];let n=null,o=()=>{},s={};const t=\"undefined\"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope,r=\"undefined\"!=typeof SharedWorkerGlobalScope&&self instanceof SharedWorkerGlobalScope;return r?self.onconnect=function(n){const o=n.ports[0];e.push(o),o.onmessage=a,o.start(),c([\"_internal:connected\"])}:t&&(self.onmessage=a,c([\"_internal:connected\"])),{postToMain:e=>o=e,handleIncomingMessage:a,ready(){c([\"_internal:connected\"])}};function c(n){n=JSON.stringify(n),r?e.forEach((e=>e.postMessage(n))):t?self.postMessage(n):o({data:n})}function a(e){const[o,t]=JSON.parse(e.data);\"_config\"===o&&(s={...s,...t}),\"_connect\"===o&&async function(e){n&&(n.close(),await new Promise((e=>{n.onclose=()=>{e()}})));n=new WebSocket(s.url),n.onopen=()=>{n.send(JSON.stringify([\"_auth\",e]))},n.onmessage=e=>{const[n,o]=JSON.parse(e.data);return c(\"_acceptAuth\"===n?[\"_internal:socket-connect\",o]:[n,o])},n.onclose=e=>{c([\"_internal:socket-disconnected\",e]),n=null},n.onerror=e=>{console.error(\"Snub-Ws-Socket => Socket error:\",e)}}(t),\"_send\"===o&&n&&n.send(JSON.stringify(t))}}(\"undefined\"!=typeof self&&self);export default{postMessage:worker.handleIncomingMessage,postToMain:worker.postToMain,ready:worker.ready};"], { type: 'application/javascript' });
+const blob = new Blob(["const worker=function(){const e=[];let n=null,o=()=>{},s={};const t=\"undefined\"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope,c=\"undefined\"!=typeof SharedWorkerGlobalScope&&self instanceof SharedWorkerGlobalScope;return c?self.onconnect=function(n){const o=n.ports[0];e.push(o),o.onmessage=a,o.start(),r([\"_internal:connected\"])}:t&&(self.onmessage=a,r([\"_internal:connected\"])),{postToMain:e=>o=e,handleIncomingMessage:a,ready(){r([\"_internal:connected\"])}};function r(n){n=JSON.stringify(n),c?e.forEach((e=>e.postMessage(n))):t?self.postMessage(n):o({data:n})}function a(e){const[o,t]=JSON.parse(e.data);\"_config\"===o&&(s={...s,...t}),\"_connect\"===o&&async function(e){n&&(n.close(),await new Promise((e=>{n.onclose=()=>{e()}})));n=new WebSocket(s.url),n.onopen=()=>{n.send(JSON.stringify([\"_auth\",e]))},n.onmessage=e=>{const[n,o]=JSON.parse(e.data);return r(\"_acceptAuth\"===n?[\"_internal:socket-connect\",o]:[n,o])},n.onclose=e=>{console.log(e),r([\"_internal:socket-disconnected\",{code:e.code,reason:e.reason}]),n=null},n.onerror=e=>{console.error(\"Snub-Ws-Socket => Socket error:\",e)}}(t),\"_close\"===o&&n&&n.close(...t),\"_send\"===o&&n&&n.send(JSON.stringify(t))}}(\"undefined\"!=typeof self&&self);export default{postMessage:worker.handleIncomingMessage,postToMain:worker.postToMain,ready:worker.ready};"], { type: 'application/javascript' });
           var workerScriptUrl = URL.createObjectURL(blob);
 
 const DEFAULT_CONFIG = {
@@ -35,7 +35,7 @@ class SnubWsClient {
           },
         ]);
         this.#state = 'READY';
-        this.connect(this.#pendingConnect);
+        if (this.#pendingConnect) this.connect(this.#pendingConnect);
         this.#pendingConnect = null;
       }
       if (key === '_internal:socket-disconnected') {
@@ -79,6 +79,10 @@ class SnubWsClient {
     } else {
       this.#pendingConnect = auth;
     }
+  }
+
+  close(code, reason) {
+    this.#worker.postMessage(['_close', [code, reason]]);
   }
 
   onopen(fn) {

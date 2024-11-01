@@ -34,7 +34,7 @@ export default class SnubWsClient {
           },
         ]);
         this.#state = 'READY';
-        this.connect(this.#pendingConnect);
+        if (this.#pendingConnect) this.connect(this.#pendingConnect);
         this.#pendingConnect = null;
       }
       if (key === '_internal:socket-disconnected') {
@@ -78,6 +78,10 @@ export default class SnubWsClient {
     } else {
       this.#pendingConnect = auth;
     }
+  }
+
+  close(code, reason) {
+    this.#worker.postMessage(['_close', [code, reason]]);
   }
 
   onopen(fn) {

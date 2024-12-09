@@ -39,7 +39,7 @@ const worker = (function (root) {
 
   // Utility function to send a message in worker or main thread
   function postMessage(msg) {
-    msg = JSON.stringify(msg);
+    msg = stringifyJson(msg);
     if (isSharedWorkerContext) {
       // Post message to all connected ports
       ports.forEach((port) => port.postMessage(msg));
@@ -54,7 +54,7 @@ const worker = (function (root) {
 
   // Common functionality that runs in both the workers and main thread
   function handleIncomingMessage(msg) {
-    const [event, payload] = JSON.parse(msg.data);
+    const [event, payload] = parseJson(msg.data);
     if (event === '_config') {
       config = { ...config, ...payload };
     }
@@ -68,7 +68,7 @@ const worker = (function (root) {
     }
     if (event === '_send') {
       if (currentSocket) {
-        currentSocket.send(JSON.stringify(payload));
+        currentSocket.send(stringifyJson(payload));
       }
     }
   }
@@ -87,10 +87,10 @@ const worker = (function (root) {
     currentSocket = new WebSocket(config.url);
 
     currentSocket.onopen = () => {
-      currentSocket.send(JSON.stringify(['_auth', auth]));
+      currentSocket.send(stringifyJson(['_auth', auth]));
     };
     currentSocket.onmessage = (event) => {
-      const [key, payload] = JSON.parse(event.data);
+      const [key, payload] = parseJson(event.data);
       if (key === '_acceptAuth') {
         return postMessage(['_internal:socket-connect', payload]);
       }
@@ -116,3 +116,32 @@ export default {
   postToMain: worker.postToMain,
   ready: worker.ready,
 };
+
+
+function stringifyJson(obj) {
+  return JSON.stringify(obj, (key, value) => {
+    if (value instanceof Map) {
+      return {
+        dataType: 'Map',
+        value: Array.from(value.entries()), // Convert Map to array of key-value pairs
+      };
+    } else if (value instanceof Set) {
+      return {
+        dataType: 'Set',
+        value: Array.from(value), // Convert Set to array
+      };
+    }
+    return value;
+  });
+}
+
+function parseJson(json) {
+  return JSON.parse(json, (key, value) => {
+    if (value && value.dataType === 'Map') {
+      return new Map(value.value); // Convert array of key-value pairs back to Map
+    } else if (value && value.dataType === 'Set') {
+      return new Set(value.value); // Convert array back to Set
+    }
+    return value;
+  });
+}

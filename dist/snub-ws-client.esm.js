@@ -1,4 +1,4 @@
-const blob = new Blob(["const worker=function(){const e=[];let n=null,o=()=>{},s={};const t=\"undefined\"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope,c=\"undefined\"!=typeof SharedWorkerGlobalScope&&self instanceof SharedWorkerGlobalScope;return c?self.onconnect=function(n){const o=n.ports[0];e.push(o),o.onmessage=a,o.start(),r([\"_internal:connected\"])}:t&&(self.onmessage=a,r([\"_internal:connected\"])),{postToMain:e=>o=e,handleIncomingMessage:a,ready(){r([\"_internal:connected\"])}};function r(n){n=JSON.stringify(n),c?e.forEach((e=>e.postMessage(n))):t?self.postMessage(n):o({data:n})}function a(e){const[o,t]=JSON.parse(e.data);\"_config\"===o&&(s={...s,...t}),\"_connect\"===o&&async function(e){n&&(n.close(),await new Promise((e=>{n.onclose=()=>{e()}})));n=new WebSocket(s.url),n.onopen=()=>{n.send(JSON.stringify([\"_auth\",e]))},n.onmessage=e=>{const[n,o]=JSON.parse(e.data);return r(\"_acceptAuth\"===n?[\"_internal:socket-connect\",o]:[n,o])},n.onclose=e=>{console.log(e),r([\"_internal:socket-disconnected\",{code:e.code,reason:e.reason}]),n=null},n.onerror=e=>{console.error(\"Snub-Ws-Socket => Socket error:\",e)}}(t),\"_close\"===o&&n&&n.close(...t),\"_send\"===o&&n&&n.send(JSON.stringify(t))}}(\"undefined\"!=typeof self&&self);export default{postMessage:worker.handleIncomingMessage,postToMain:worker.postToMain,ready:worker.ready};"], { type: 'application/javascript' });
+const blob = new Blob(["const worker=function(){const e=[];let n=null,o=()=>{},s={};const t=\"undefined\"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope,a=\"undefined\"!=typeof SharedWorkerGlobalScope&&self instanceof SharedWorkerGlobalScope;return a?self.onconnect=function(n){const o=n.ports[0];e.push(o),o.onmessage=c,o.start(),r([\"_internal:connected\"])}:t&&(self.onmessage=c,r([\"_internal:connected\"])),{postToMain:e=>o=e,handleIncomingMessage:c,ready(){r([\"_internal:connected\"])}};function r(n){n=stringifyJson(n),a?e.forEach((e=>e.postMessage(n))):t?self.postMessage(n):o({data:n})}function c(e){const[o,t]=parseJson(e.data);\"_config\"===o&&(s={...s,...t}),\"_connect\"===o&&async function(e){n&&(n.close(),await new Promise((e=>{n.onclose=()=>{e()}})));n=new WebSocket(s.url),n.onopen=()=>{n.send(stringifyJson([\"_auth\",e]))},n.onmessage=e=>{const[n,o]=parseJson(e.data);return r(\"_acceptAuth\"===n?[\"_internal:socket-connect\",o]:[n,o])},n.onclose=e=>{console.log(e),r([\"_internal:socket-disconnected\",{code:e.code,reason:e.reason}]),n=null},n.onerror=e=>{console.error(\"Snub-Ws-Socket => Socket error:\",e)}}(t),\"_close\"===o&&n&&n.close(...t),\"_send\"===o&&n&&n.send(stringifyJson(t))}}(\"undefined\"!=typeof self&&self);export default{postMessage:worker.handleIncomingMessage,postToMain:worker.postToMain,ready:worker.ready};function stringifyJson(e){return JSON.stringify(e,((e,n)=>n instanceof Map?{dataType:\"Map\",value:Array.from(n.entries())}:n instanceof Set?{dataType:\"Set\",value:Array.from(n)}:n))}function parseJson(e){return JSON.parse(e,((e,n)=>n&&\"Map\"===n.dataType?new Map(n.value):n&&\"Set\"===n.dataType?new Set(n.value):n))}"], { type: 'application/javascript' });
           var workerScriptUrl = URL.createObjectURL(blob);
 
 const DEFAULT_CONFIG = {
@@ -26,7 +26,7 @@ class SnubWsClient {
     this.#worker = this.#startWorker();
     JSONifyWorker(this.#worker); // JSONify the worker
     this.#worker.onmessage = (event) => {
-      const [key, value] = JSON.parse(event.data);
+      const [key, value] = parseJson(event.data);
       if (key === '_internal:connected') {
         this.#worker.postMessage([
           '_config',
@@ -44,14 +44,17 @@ class SnubWsClient {
       if (key === '_internal:socket-connect') {
         this.#onopen(value);
       }
-      if (key.startsWith('_internal:')) return;
-      if (key.startsWith('_r:')) {
-        const [resolve, reject, timeout] = this.#waitingReplies.get(key);
-        if (resolve) {
-          resolve(value);
-          this.#waitingReplies.delete(key);
-          clearTimeout(timeout);
-        }
+      const [prefix, uid, type] = key.split(':');
+      if (prefix === '_internal') return;
+
+      if (prefix === '_r') {
+        const [resolve, reject, timeout] = this.#waitingReplies.get(
+          prefix + ':' + uid
+        );
+        clearTimeout(timeout);
+        this.#waitingReplies.delete(prefix + ':' + uid);
+        if (type === 'error' && reject) return reject(value);
+        if (resolve) return resolve(value);
         return;
       }
       this.#onmessage(key, value);
@@ -139,7 +142,7 @@ class SnubWsClient {
     import(workerScriptUrl)
       .then((module) => {
         mainThreadWorker.postMessage = (msg) => {
-          module.default.postMessage({ data: JSON.stringify(msg) });
+          module.default.postMessage({ data: stringifyJson(msg) });
         };
         mainThreadWorker.postToMain = module.default.postToMain((msg) => {
           mainThreadWorker.onmessage(msg);
@@ -189,7 +192,7 @@ class SharedWorkerWrapper {
 function JSONifyWorker(worker) {
   worker._postMessage = worker.postMessage;
   worker.postMessage = function (message) {
-    worker._postMessage(JSON.stringify(message));
+    worker._postMessage(stringifyJson(message));
   };
 }
 
@@ -199,6 +202,34 @@ function generateUID() {
   firstPart = ('000' + firstPart.toString(36)).slice(-3);
   secondPart = ('000' + secondPart.toString(36)).slice(-3);
   return firstPart + secondPart;
+}
+
+function stringifyJson(obj) {
+  return JSON.stringify(obj, (key, value) => {
+    if (value instanceof Map) {
+      return {
+        dataType: 'Map',
+        value: Array.from(value.entries()), // Convert Map to array of key-value pairs
+      };
+    } else if (value instanceof Set) {
+      return {
+        dataType: 'Set',
+        value: Array.from(value), // Convert Set to array
+      };
+    }
+    return value;
+  });
+}
+
+function parseJson(json) {
+  return JSON.parse(json, (key, value) => {
+    if (value && value.dataType === 'Map') {
+      return new Map(value.value); // Convert array of key-value pairs back to Map
+    } else if (value && value.dataType === 'Set') {
+      return new Set(value.value); // Convert array back to Set
+    }
+    return value;
+  });
 }
 
 export { SnubWsClient as default };

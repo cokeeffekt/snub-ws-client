@@ -25,7 +25,7 @@ export default class SnubWsClient {
     this.#worker = this.#startWorker();
     JSONifyWorker(this.#worker); // JSONify the worker
     this.#worker.onmessage = (event) => {
-      const [key, value] = JSON.parse(event.data);
+      const [key, value] = parseJson(event.data);
       if (key === '_internal:connected') {
         this.#worker.postMessage([
           '_config',
@@ -43,14 +43,17 @@ export default class SnubWsClient {
       if (key === '_internal:socket-connect') {
         this.#onopen(value);
       }
-      if (key.startsWith('_internal:')) return;
-      if (key.startsWith('_r:')) {
-        const [resolve, reject, timeout] = this.#waitingReplies.get(key);
-        if (resolve) {
-          resolve(value);
-          this.#waitingReplies.delete(key);
-          clearTimeout(timeout);
-        }
+      const [prefix, uid, type] = key.split(':');
+      if (prefix === '_internal') return;
+
+      if (prefix === '_r') {
+        const [resolve, reject, timeout] = this.#waitingReplies.get(
+          prefix + ':' + uid
+        );
+        clearTimeout(timeout);
+        this.#waitingReplies.delete(prefix + ':' + uid);
+        if (type === 'error' && reject) return reject(value);
+        if (resolve) return resolve(value);
         return;
       }
       this.#onmessage(key, value);
@@ -138,7 +141,7 @@ export default class SnubWsClient {
     import(workerScriptUrl)
       .then((module) => {
         mainThreadWorker.postMessage = (msg) => {
-          module.default.postMessage({ data: JSON.stringify(msg) });
+          module.default.postMessage({ data: stringifyJson(msg) });
         };
         mainThreadWorker.postToMain = module.default.postToMain((msg) => {
           mainThreadWorker.onmessage(msg);
@@ -188,7 +191,7 @@ class SharedWorkerWrapper {
 function JSONifyWorker(worker) {
   worker._postMessage = worker.postMessage;
   worker.postMessage = function (message) {
-    worker._postMessage(JSON.stringify(message));
+    worker._postMessage(stringifyJson(message));
   };
 }
 
@@ -198,4 +201,32 @@ function generateUID() {
   firstPart = ('000' + firstPart.toString(36)).slice(-3);
   secondPart = ('000' + secondPart.toString(36)).slice(-3);
   return firstPart + secondPart;
+}
+
+function stringifyJson(obj) {
+  return JSON.stringify(obj, (key, value) => {
+    if (value instanceof Map) {
+      return {
+        dataType: 'Map',
+        value: Array.from(value.entries()), // Convert Map to array of key-value pairs
+      };
+    } else if (value instanceof Set) {
+      return {
+        dataType: 'Set',
+        value: Array.from(value), // Convert Set to array
+      };
+    }
+    return value;
+  });
+}
+
+function parseJson(json) {
+  return JSON.parse(json, (key, value) => {
+    if (value && value.dataType === 'Map') {
+      return new Map(value.value); // Convert array of key-value pairs back to Map
+    } else if (value && value.dataType === 'Set') {
+      return new Set(value.value); // Convert array back to Set
+    }
+    return value;
+  });
 }

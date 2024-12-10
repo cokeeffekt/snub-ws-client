@@ -48,9 +48,13 @@ class SnubWsClient {
       if (prefix === '_internal') return;
 
       if (prefix === '_r') {
-        const [resolve, reject, timeout] = this.#waitingReplies.get(
+        const findReply = this.#waitingReplies.get(
           prefix + ':' + uid
         );
+        if (!findReply) {
+          console.warn('Reply not found:', key, value); // dont know what this is about, keeping an eye on it.
+          return;
+        }        const [resolve, reject, timeout] = findReply;
         clearTimeout(timeout);
         this.#waitingReplies.delete(prefix + ':' + uid);
         if (type === 'error' && reject) return reject(value);

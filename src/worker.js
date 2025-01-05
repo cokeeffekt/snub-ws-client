@@ -57,6 +57,7 @@ const worker = (function (root) {
     const [event, payload] = parseJson(msg.data);
     if (event === '_config') {
       config = { ...config, ...payload };
+      config.httpUrl = config.url.replace(/^ws/, 'http')
     }
     if (event === '_connect') {
       connectSocket(payload);
@@ -93,6 +94,17 @@ const worker = (function (root) {
       const [key, payload] = parseJson(event.data);
       if (key === '_acceptAuth') {
         return postMessage(['_internal:socket-connect', payload]);
+      }
+      if (key === '_offload') {
+        return (async () => {
+          const result = await fetch(config.httpUrl + `?offload=${payload}`);
+          if (!result.ok) {
+            return console.error('offload failed');
+          }
+          let data = await result.text();
+          data = parseJson(data);
+          postMessage([...data]);
+        })();
       }
       return postMessage([key, payload]);
     };

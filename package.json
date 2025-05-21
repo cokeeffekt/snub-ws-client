@@ -1,6 +1,6 @@
 {
   "name": "snub-ws-client",
-  "version": "4.0.7-beta.0",
+  "version": "4.1.0",
   "description": "Websocket client for snub-ws",
   "main": "dist/snub-ws-client.cjs.js",
   "module": "dist/snub-ws-client.esm.js",
@@ -17,7 +17,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "watch 'npm run build' src",
     "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.cjs\"  \"watch 'npm run build' src\" --kill-others",
-    "publish": "npm run build && npm publish --tag beta"
+    "publish": "npm run build && npm publish"
   },
   "repository": {
     "type": "git",

@@ -41,8 +41,14 @@ const worker = (function (root) {
   function postMessage(msg) {
     msg = stringifyJson(msg);
     if (isSharedWorkerContext) {
-      // Post message to all connected ports
-      ports.forEach((port) => port.postMessage(msg));
+      // Post message to all connected ports, pruning any that have closed
+      for (let i = ports.length - 1; i >= 0; i--) {
+        try {
+          ports[i].postMessage(msg);
+        } catch (_) {
+          ports.splice(i, 1);
+        }
+      }
     } else if (isWorkerContext) {
       // Post message to the main script
       self.postMessage(msg);
@@ -97,19 +103,25 @@ const worker = (function (root) {
       }
       if (key === '_offload') {
         return (async () => {
-          const result = await fetch(config.httpUrl + `?offload=${payload}`);
-          if (!result.ok) {
-            return console.error('offload failed');
+          const controller = new AbortController();
+          // 30s matches the server-side Redis TTL for offload payloads
+          const timeout = setTimeout(() => controller.abort(), 30000);
+          try {
+            const result = await fetch(config.httpUrl + `?offload=${payload}`, { signal: controller.signal });
+            if (!result.ok) throw new Error(`offload fetch failed: ${result.status}`);
+            let data = await result.text();
+            data = parseJson(data);
+            postMessage([...data]);
+          } catch (e) {
+            console.error('Snub-Ws-Socket => Offload error:', e);
+          } finally {
+            clearTimeout(timeout);
           }
-          let data = await result.text();
-          data = parseJson(data);
-          postMessage([...data]);
         })();
       }
       return postMessage([key, payload]);
     };
     currentSocket.onclose = (event) => {
-      console.log(event);
       // https://github.com/Luka967/websocket-close-codes
       postMessage(['_internal:socket-disconnected', {
         code: event.code,
@@ -117,8 +129,8 @@ const worker = (function (root) {
       }]);
       currentSocket = null;
     };
-    currentSocket.onerror = (error) => {
-      console.error('Snub-Ws-Socket => Socket error:', error);
+    currentSocket.onerror = () => {
+      postMessage(['_internal:socket-error']);
     };
   }
 })(typeof self !== 'undefined' ? self : this);

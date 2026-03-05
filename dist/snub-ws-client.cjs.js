@@ -1,6 +1,6 @@
 'use strict';
 
-const blob = new Blob(["const worker=function(){const e=[];let n=null,o=()=>{},t={};const s=\"undefined\"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope,a=\"undefined\"!=typeof SharedWorkerGlobalScope&&self instanceof SharedWorkerGlobalScope;return a?self.onconnect=function(n){const o=n.ports[0];e.push(o),o.onmessage=c,o.start(),r([\"_internal:connected\"])}:s&&(self.onmessage=c,r([\"_internal:connected\"])),{postToMain:e=>o=e,handleIncomingMessage:c,ready(){r([\"_internal:connected\"])}};function r(n){n=stringifyJson(n),a?e.forEach((e=>e.postMessage(n))):s?self.postMessage(n):o({data:n})}function c(e){const[o,s]=parseJson(e.data);\"_config\"===o&&(t={...t,...s},t.httpUrl=t.url.replace(/^ws/,\"http\")),\"_connect\"===o&&async function(e){n&&(n.close(),await new Promise((e=>{n.onclose=()=>{e()}})));n=new WebSocket(t.url),n.onopen=()=>{n.send(stringifyJson([\"_auth\",e]))},n.onmessage=e=>{const[n,o]=parseJson(e.data);return\"_acceptAuth\"===n?r([\"_internal:socket-connect\",o]):\"_offload\"===n?(async()=>{const e=await fetch(t.httpUrl+`?offload=${o}`);if(!e.ok)return console.error(\"offload failed\");let n=await e.text();n=parseJson(n),r([...n])})():r([n,o])},n.onclose=e=>{console.log(e),r([\"_internal:socket-disconnected\",{code:e.code,reason:e.reason}]),n=null},n.onerror=e=>{console.error(\"Snub-Ws-Socket => Socket error:\",e)}}(s),\"_close\"===o&&n&&n.close(...s),\"_send\"===o&&n&&n.send(stringifyJson(s))}}(\"undefined\"!=typeof self&&self);export default{postMessage:worker.handleIncomingMessage,postToMain:worker.postToMain,ready:worker.ready};function stringifyJson(e){return JSON.stringify(e,((e,n)=>n instanceof Map?{dataType:\"Map\",value:Array.from(n.entries())}:n instanceof Set?{dataType:\"Set\",value:Array.from(n)}:n))}function parseJson(e){return JSON.parse(e,((e,n)=>n&&\"Map\"===n.dataType?new Map(n.value):n&&\"Set\"===n.dataType?new Set(n.value):n))}"], { type: 'application/javascript' });
+const blob = new Blob(["const worker=function(){const e=[];let n=null,o=()=>{},t={};const s=\"undefined\"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope,a=\"undefined\"!=typeof SharedWorkerGlobalScope&&self instanceof SharedWorkerGlobalScope;return a?self.onconnect=function(n){const o=n.ports[0];e.push(o),o.onmessage=c,o.start(),r([\"_internal:connected\"])}:s&&(self.onmessage=c,r([\"_internal:connected\"])),{postToMain:e=>o=e,handleIncomingMessage:c,ready(){r([\"_internal:connected\"])}};function r(n){if(n=stringifyJson(n),a)for(let o=e.length-1;o>=0;o--)try{e[o].postMessage(n)}catch(n){e.splice(o,1)}else s?self.postMessage(n):o({data:n})}function c(e){const[o,s]=parseJson(e.data);\"_config\"===o&&(t={...t,...s},t.httpUrl=t.url.replace(/^ws/,\"http\")),\"_connect\"===o&&async function(e){n&&(n.close(),await new Promise((e=>{n.onclose=()=>{e()}})));n=new WebSocket(t.url),n.onopen=()=>{n.send(stringifyJson([\"_auth\",e]))},n.onmessage=e=>{const[n,o]=parseJson(e.data);return\"_acceptAuth\"===n?r([\"_internal:socket-connect\",o]):\"_offload\"===n?(async()=>{const e=new AbortController,n=setTimeout((()=>e.abort()),3e4);try{const n=await fetch(t.httpUrl+`?offload=${o}`,{signal:e.signal});if(!n.ok)throw new Error(`offload fetch failed: ${n.status}`);let s=await n.text();s=parseJson(s),r([...s])}catch(e){console.error(\"Snub-Ws-Socket => Offload error:\",e)}finally{clearTimeout(n)}})():r([n,o])},n.onclose=e=>{r([\"_internal:socket-disconnected\",{code:e.code,reason:e.reason}]),n=null},n.onerror=()=>{r([\"_internal:socket-error\"])}}(s),\"_close\"===o&&n&&n.close(...s),\"_send\"===o&&n&&n.send(stringifyJson(s))}}(\"undefined\"!=typeof self&&self);export default{postMessage:worker.handleIncomingMessage,postToMain:worker.postToMain,ready:worker.ready};function stringifyJson(e){return JSON.stringify(e,((e,n)=>n instanceof Map?{dataType:\"Map\",value:Array.from(n.entries())}:n instanceof Set?{dataType:\"Set\",value:Array.from(n)}:n))}function parseJson(e){return JSON.parse(e,((e,n)=>n&&\"Map\"===n.dataType?new Map(n.value):n&&\"Set\"===n.dataType?new Set(n.value):n))}"], { type: 'application/javascript' });
           var workerScriptUrl = URL.createObjectURL(blob);
 
 const DEFAULT_CONFIG = {
@@ -21,6 +21,7 @@ class SnubWsClient {
   #onmessage = () => {};
   #onopen = () => {};
   #onclose = () => {};
+  #onerror = () => {};
 
   constructor(config) {
     this.#config = { ...DEFAULT_CONFIG, ...config };
@@ -45,6 +46,9 @@ class SnubWsClient {
       }
       if (key === '_internal:socket-connect') {
         this.#onopen(value);
+      }
+      if (key === '_internal:socket-error') {
+        this.#onerror(value);
       }
       const [prefix, uid, type] = key.split(':');
       if (prefix === '_internal') return;
@@ -91,7 +95,11 @@ class SnubWsClient {
   }
 
   close(code, reason) {
-    this.#worker.postMessage(['_close', [code, reason]]);
+    this.#worker.postMessage(['_close', [code, reason].filter((v) => v !== undefined)]);
+  }
+
+  get state() {
+    return this.#state;
   }
 
   onopen(fn) {
@@ -105,39 +113,46 @@ class SnubWsClient {
     this.#onclose = fn;
   }
 
+  onerror(fn) {
+    this.#onerror = fn;
+  }
+
   // Private functions
   #startWorker() {
-    // Check if SharedWorker is supported
-    if (
-      typeof SharedWorker !== 'undefined' &&
-      !['WEB_WORKER', 'MAIN_THREAD'].includes(this.#config.workerType)
-    ) {
-      try {
-        const sharedWorker = new SharedWorkerWrapper(workerScriptUrl, {
-          type: 'module',
-          name: this.#config.workerName,
-        });
-        this.#workerType = 'sharedWorker';
-        return sharedWorker;
-      } catch (e) {}
+    const requested = this.#config.workerType;
+
+    // SharedWorker — one socket shared across all tabs on the same origin
+    if (requested !== 'WEB_WORKER' && requested !== 'MAIN_THREAD') {
+      if (typeof SharedWorker !== 'undefined') {
+        try {
+          const sharedWorker = new SharedWorkerWrapper(workerScriptUrl, {
+            type: 'module',
+            name: this.#config.workerName,
+          });
+          this.#workerType = 'sharedWorker';
+          return sharedWorker;
+        } catch (e) {}
+      }
+      if (requested === 'SHARED_WORKER')
+        console.warn('SnubWsClient: SharedWorker not available, falling back to WebWorker');
     }
 
-    // Check if Web Worker is supported
-    if (
-      typeof Worker !== 'undefined' &&
-      !['MAIN_THREAD'].includes(this.#config.workerType)
-    ) {
-      try {
-        const webWorker = new Worker(workerScriptUrl, {
-          type: 'module',
-          name: this.#config.workerName,
-        });
-        this.#workerType = 'webWorker';
-        return webWorker;
-      } catch (e) {}
+    // WebWorker — one socket per tab
+    if (requested !== 'MAIN_THREAD') {
+      if (typeof Worker !== 'undefined') {
+        try {
+          const webWorker = new Worker(workerScriptUrl, {
+            type: 'module',
+            name: this.#config.workerName,
+          });
+          this.#workerType = 'webWorker';
+          return webWorker;
+        } catch (e) {}
+      }
+      console.warn('SnubWsClient: WebWorker not available, falling back to main thread');
     }
 
-    // Fallback to running in the main thread
+    // Main thread fallback
     this.#workerType = 'mainThread';
 
     const mainThreadWorker = {
@@ -203,11 +218,7 @@ function JSONifyWorker(worker) {
 }
 
 function generateUID() {
-  let firstPart = (Math.random() * 46656) | 0;
-  let secondPart = (Math.random() * 46656) | 0;
-  firstPart = ('000' + firstPart.toString(36)).slice(-3);
-  secondPart = ('000' + secondPart.toString(36)).slice(-3);
-  return firstPart + secondPart;
+  return crypto.randomUUID();
 }
 
 function stringifyJson(obj) {

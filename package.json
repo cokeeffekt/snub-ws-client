@@ -1,11 +1,13 @@
 {
   "name": "snub-ws-client",
-  "version": "4.1.0",
+  "version": "4.2.1",
   "description": "Websocket client for snub-ws",
   "main": "dist/snub-ws-client.cjs.js",
   "module": "dist/snub-ws-client.esm.js",
+  "types": "index.d.ts",
   "exports": {
     ".": {
+      "types": "./index.d.ts",
       "import": "./dist/snub-ws-client.esm.js",
       "require": "./dist/snub-ws-client.cjs.js"
     }
@@ -15,8 +17,8 @@
     "build": "rollup -c",
     "redis": "docker run --rm --name redis-untap -p 6379:6379 redis:4.0-alpine",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "watch": "watch 'npm run build' src",
-    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.cjs\"  \"watch 'npm run build' src\" --kill-others",
+    "watch": "rollup -c --watch",
+    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.cjs\" \"rollup -c --watch\" --kill-others",
     "publish": "npm run build && npm publish"
   },
   "repository": {
@@ -40,7 +42,6 @@
     "snub": "^4.1.0",
     "snub-ws": "^4.1.0",
     "static-server": "^2.2.1",
-    "watch": "^1.0.2",
     "ws": "^7.2.1"
   }
 }

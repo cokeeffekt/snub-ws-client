@@ -18,6 +18,7 @@ export default class SnubWsClient {
   #onmessage = () => {};
   #onopen = () => {};
   #onclose = () => {};
+  #onerror = () => {};
 
   constructor(config) {
     this.#config = { ...DEFAULT_CONFIG, ...config };
@@ -42,6 +43,9 @@ export default class SnubWsClient {
       }
       if (key === '_internal:socket-connect') {
         this.#onopen(value);
+      }
+      if (key === '_internal:socket-error') {
+        this.#onerror(value);
       }
       const [prefix, uid, type] = key.split(':');
       if (prefix === '_internal') return;
@@ -89,7 +93,11 @@ export default class SnubWsClient {
   }
 
   close(code, reason) {
-    this.#worker.postMessage(['_close', [code, reason]]);
+    this.#worker.postMessage(['_close', [code, reason].filter((v) => v !== undefined)]);
+  }
+
+  get state() {
+    return this.#state;
   }
 
   onopen(fn) {
@@ -103,39 +111,46 @@ export default class SnubWsClient {
     this.#onclose = fn;
   }
 
+  onerror(fn) {
+    this.#onerror = fn;
+  }
+
   // Private functions
   #startWorker() {
-    // Check if SharedWorker is supported
-    if (
-      typeof SharedWorker !== 'undefined' &&
-      !['WEB_WORKER', 'MAIN_THREAD'].includes(this.#config.workerType)
-    ) {
-      try {
-        const sharedWorker = new SharedWorkerWrapper(workerScriptUrl, {
-          type: 'module',
-          name: this.#config.workerName,
-        });
-        this.#workerType = 'sharedWorker';
-        return sharedWorker;
-      } catch (e) {}
+    const requested = this.#config.workerType;
+
+    // SharedWorker — one socket shared across all tabs on the same origin
+    if (requested !== 'WEB_WORKER' && requested !== 'MAIN_THREAD') {
+      if (typeof SharedWorker !== 'undefined') {
+        try {
+          const sharedWorker = new SharedWorkerWrapper(workerScriptUrl, {
+            type: 'module',
+            name: this.#config.workerName,
+          });
+          this.#workerType = 'sharedWorker';
+          return sharedWorker;
+        } catch (e) {}
+      }
+      if (requested === 'SHARED_WORKER')
+        console.warn('SnubWsClient: SharedWorker not available, falling back to WebWorker');
     }
 
-    // Check if Web Worker is supported
-    if (
-      typeof Worker !== 'undefined' &&
-      !['MAIN_THREAD'].includes(this.#config.workerType)
-    ) {
-      try {
-        const webWorker = new Worker(workerScriptUrl, {
-          type: 'module',
-          name: this.#config.workerName,
-        });
-        this.#workerType = 'webWorker';
-        return webWorker;
-      } catch (e) {}
+    // WebWorker — one socket per tab
+    if (requested !== 'MAIN_THREAD') {
+      if (typeof Worker !== 'undefined') {
+        try {
+          const webWorker = new Worker(workerScriptUrl, {
+            type: 'module',
+            name: this.#config.workerName,
+          });
+          this.#workerType = 'webWorker';
+          return webWorker;
+        } catch (e) {}
+      }
+      console.warn('SnubWsClient: WebWorker not available, falling back to main thread');
     }
 
-    // Fallback to running in the main thread
+    // Main thread fallback
     this.#workerType = 'mainThread';
 
     const mainThreadWorker = {
@@ -201,11 +216,7 @@ function JSONifyWorker(worker) {
 }
 
 function generateUID() {
-  let firstPart = (Math.random() * 46656) | 0;
-  let secondPart = (Math.random() * 46656) | 0;
-  firstPart = ('000' + firstPart.toString(36)).slice(-3);
-  secondPart = ('000' + secondPart.toString(36)).slice(-3);
-  return firstPart + secondPart;
+  return crypto.randomUUID();
 }
 
 function stringifyJson(obj) {

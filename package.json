@@ -1,6 +1,6 @@
 {
   "name": "snub-ws-client",
-  "version": "4.2.1",
+  "version": "5.0.0",
   "description": "Websocket client for snub-ws",
   "main": "dist/snub-ws-client.cjs.js",
   "module": "dist/snub-ws-client.esm.js",
@@ -10,7 +10,10 @@
       "types": "./index.d.ts",
       "import": "./dist/snub-ws-client.esm.js",
       "require": "./dist/snub-ws-client.cjs.js"
-    }
+    },
+    "./worker": "./dist/snub-ws-client.worker.js",
+    "./dist/snub-ws-client.worker.js": "./dist/snub-ws-client.worker.js",
+    "./package.json": "./package.json"
   },
   "type": "module",
   "scripts": {
@@ -39,7 +42,7 @@
     "prettier": "^2.3.1",
     "rollup": "^4.24.3",
     "rollup-plugin-copy": "^3.5.0",
-    "snub": "^4.1.0",
+    "snub": "^5.0.0",
     "snub-ws": "^4.1.0",
     "static-server": "^2.2.1",
     "ws": "^7.2.1"

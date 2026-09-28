@@ -21,15 +21,14 @@
     "redis": "docker run --rm --name redis-untap -p 6379:6379 redis:4.0-alpine",
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "rollup -c --watch",
-    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.cjs\" \"rollup -c --watch\" --kill-others",
-    "publish": "npm run build && npm publish"
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cokeeffekt/snub-ws-client.git"
   },
   "author": "Patrik Hartwig",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/cokeeffekt/snub-ws-client/issues"
   },

@@ -1,7 +1,6 @@
 src/
 audit/
 node_modules/
-sample/
 .gitignore
 prettier.config.cjs
 rollup.config.js
